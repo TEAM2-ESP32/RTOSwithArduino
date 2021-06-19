@@ -7,7 +7,7 @@ void vTask1(void *pvParameters) {
 
   for(;;) {
     printf("%s\n", pcTaskName);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    //vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 
@@ -15,7 +15,7 @@ void setup() {
   printf("Hello world!\n");
 
   xTaskCreate(vTask1, "Task 1", 1024, (void *)pcTextTask1, 3, NULL);
-  xTaskCreate(vTask1, "Task 2", 1024, (void *)pcTextTask2, 3, NULL);
+  xTaskCreate(vTask1, "Task 2", 1024, (void *)pcTextTask2, 4, NULL);
 }
 
 void loop() {
