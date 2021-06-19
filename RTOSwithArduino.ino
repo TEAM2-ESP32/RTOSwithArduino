@@ -1,29 +1,41 @@
-const char *pcTextTask1 = "vTask1";
-const char *pcTextTask2 = "vTask2";
+/* handle of Task */
+TaskHandle_t xTask2Handle;
 
 void vTask1(void *pvParameters) {
-  char *pcTaskName;
-  pcTaskName = (char *)pvParameters;
+  UBaseType_t uxPriority;
+  uxPriority = uxTaskPriorityGet(NULL);
 
   for(;;) {
-    printf("%s\n", pcTaskName);
-    printf("This task priority is %d.\n\n", uxTaskPriorityGet(NULL));
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    printf("Task1 is running.\n");
+    printf("Priority of Task2 is %d.\n", uxTaskPriorityGet(xTask2Handle));
+
+    /* Setting the Task2 priority */
+    printf("About to raise the Task2 priority\n\n");
+    vTaskPrioritySet(xTask2Handle, uxPriority + 1);
+  }
+}
+
+void vTask2(void *pvParameters) {
+  UBaseType_t uxPriority;
+  uxPriority = uxTaskPriorityGet(NULL);
+
+  for(;;) {
+    printf("Task2 is running.\n");
+    printf("Priority of Task2 is %d.\n", uxTaskPriorityGet(NULL));
+
+    /* Setting the Task2 priority */
+    printf("About to lower the Task2 priority\n\n");
+    vTaskPrioritySet(NULL, uxPriority - 1);
   }
 }
 
 void setup() {
   printf("Hello world!\n");
 
-  xTaskCreate(vTask1, "Task 1", 2048, (void *)pcTextTask1, 3, NULL);  // 1024 stack overflow -> 2048
-  xTaskCreate(vTask1, "Task 2", 2048, (void *)pcTextTask2, 4, NULL);  // 1024 stack overflow -> 2048
+  xTaskCreate(vTask1, "Task 1", 2048, NULL, 4, NULL);
+  xTaskCreate(vTask2, "Task 2", 2048, NULL, 3, &xTask2Handle);
 }
 
 void loop() {
-  static int i = 0;
-
-  printf("Restarting in %d seconds...\n", i);
-  printf("This task priority is %d.\n\n", uxTaskPriorityGet(NULL));
-  i++; 
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
