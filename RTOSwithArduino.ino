@@ -7,7 +7,7 @@ void vTask1(void *pvParameters) {
 
   for(;;) {
     printf("%s\n", pcTaskName);
-    //vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(1 / portTICK_PERIOD_MS);
   }
 }
 
