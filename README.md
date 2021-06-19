@@ -11,3 +11,5 @@
 ## Task Priority get
 
 ## Task Priority set
+
+## Task delete
