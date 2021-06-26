@@ -1,18 +1,31 @@
-// Queue creat, wtite, read
+// Queue struct
 
-const TickType_t xTicksToWait = pdMS_TO_TICKS(500UL);
+typedef enum {
+  eSender1,
+  eSender2
+} DataSource_t;
+
+/* Define the structure type that will be passed on the queue. */
+typedef struct {
+  uint8_t ucValue;
+  DataSource_t eDataSource;
+} Data_t;
+
+/* Declare two variables of type Data_t that will be passed on the queue. */
+static const Data_t xStructsToSend[2] = {
+  { 100, eSender1 }, // Used by Sender1
+  { 200, eSender2 }  // Used by Sender2
+};
 
 /* handle of Queue */
 QueueHandle_t xQueue;
 
 static void vSenderTask(void *pvParameters) {
-  int32_t lValueToSend;
   BaseType_t xStatus;
-
-  lValueToSend = (int32_t)pvParameters;
+  const TickType_t xTicksToWait = pdMS_TO_TICKS(500UL);
 
   for(;;) {
-    xStatus = xQueueSendToBack(xQueue, &lValueToSend, 0);
+    xStatus = xQueueSendToBack(xQueue, pvParameters, xTicksToWait);
     
     if(xStatus == pdPASS) {
       printf("Success send to the queue.\n");
@@ -20,7 +33,6 @@ static void vSenderTask(void *pvParameters) {
     else {
       printf("Could not send to the queue.\n");
     }
-    vTaskDelay(300/ portTICK_PERIOD_MS);
   }
 }
 
@@ -28,11 +40,12 @@ void setup() {
   printf("Hello world!\n");
 
   /* Create Queue */
-  xQueue = xQueueCreate(5, sizeof(int32_t));
+  xQueue = xQueueCreate(3, sizeof(Data_t));
 
   if(xQueue != NULL) {  // 큐 생성이 성공한 경우
     /* Create the Task */
-    xTaskCreate(vSenderTask, "Sender1", 1024, (void *)100, 1, NULL);
+    xTaskCreate(vSenderTask, "Sender1", 1024, (void *)&xStructsToSend[0], 2, NULL);
+    xTaskCreate(vSenderTask, "Sender2", 1024, (void *)&xStructsToSend[1], 2, NULL);
   }
   else {                // 큐 생성이 실패한 경우
     printf("Creation of Queue is failed\n\n");
@@ -41,16 +54,21 @@ void setup() {
 }
 
 void loop() {
-  static int32_t lReceivedValue;
+  static Data_t xReceivedStructure;
   static BaseType_t xStatus;
 
-  if(uxQueueMessagesWaiting(xQueue) != 0) {
-    printf("Queue should have been empty!\n\n");
+  if(uxQueueMessagesWaiting(xQueue) != 3) {
+    printf("Queue should have been full!\n\n");
   }
 
-  xStatus = xQueueReceive(xQueue, &lReceivedValue, xTicksToWait);
+  xStatus = xQueueReceive(xQueue, &xReceivedStructure, 0);
   if(xStatus == pdPASS) {  // Data was successfully received
-    printf("Received = %d\n\n", lReceivedValue);
+    if(xReceivedStructure.eDataSource == eSender1) {
+      printf("From Sender 1 = %d\n\n", xReceivedStructure.ucValue);
+    }
+    else {
+      printf("From Sender 2 = %d\n\n", xReceivedStructure.ucValue);
+    }
   }
   else {
     printf("Could not receive from the queue.\n\n");
