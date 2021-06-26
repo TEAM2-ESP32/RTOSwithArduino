@@ -1,38 +1,33 @@
-// Queue struct
-
-typedef enum {
-  eSender1,
-  eSender2
-} DataSource_t;
-
-/* Define the structure type that will be passed on the queue. */
-typedef struct {
-  uint8_t ucValue;
-  DataSource_t eDataSource;
-} Data_t;
-
-/* Declare two variables of type Data_t that will be passed on the queue. */
-static const Data_t xStructsToSend[2] = {
-  { 100, eSender1 }, // Used by Sender1
-  { 200, eSender2 }  // Used by Sender2
-};
+// Queue set
 
 /* handle of Queue */
-QueueHandle_t xQueue;
+QueueHandle_t xQueue1 = NULL, xQueue2 = NULL;
+/* handle of Queue set */
+QueueSetHandle_t xQueueSet = NULL;
 
-static void vSenderTask(void *pvParameters) {
-  BaseType_t xStatus;
-  const TickType_t xTicksToWait = pdMS_TO_TICKS(500UL);
+static void vSenderTask1(void *pvParameters) {
+  const TickType_t xBlockTime = pdMS_TO_TICKS(200UL);
+  const char* const pcMessage ="Message for vSenderTask1\n\n"; 
 
   for(;;) {
-    xStatus = xQueueSendToBack(xQueue, pvParameters, xTicksToWait);
-    
-    if(xStatus == pdPASS) {
-      printf("Success send to the queue.\n");
-    }
-    else {
-      printf("Could not send to the queue.\n");
-    }
+    /* Block for 200ms */
+    vTaskDelay(xBlockTime);
+
+    /* Send this task's string to xQueue1. */ 
+    xQueueSend(xQueue1, &pcMessage, 0);
+  }
+}
+
+static void vSenderTask2(void *pvParameters) {
+  const TickType_t xBlockTime = pdMS_TO_TICKS(400UL);
+  const char* const pcMessage ="Message for vSenderTask2\n\n"; 
+
+  for(;;) {
+    /* Block for 400ms */
+    vTaskDelay(xBlockTime);
+
+    /* Send this task's string to xQueue1. */ 
+    xQueueSend(xQueue2, &pcMessage, 0);
   }
 }
 
@@ -40,37 +35,28 @@ void setup() {
   printf("Hello world!\n");
 
   /* Create Queue */
-  xQueue = xQueueCreate(3, sizeof(Data_t));
+  xQueue1 = xQueueCreate(1, sizeof(char *));
+  xQueue2 = xQueueCreate(1, sizeof(char *));
 
-  if(xQueue != NULL) {  // 큐 생성이 성공한 경우
-    /* Create the Task */
-    xTaskCreate(vSenderTask, "Sender1", 1024, (void *)&xStructsToSend[0], 2, NULL);
-    xTaskCreate(vSenderTask, "Sender2", 1024, (void *)&xStructsToSend[1], 2, NULL);
-  }
-  else {                // 큐 생성이 실패한 경우
-    printf("Creation of Queue is failed\n\n");
-  }
+  /* Creat Queue-set */
+  xQueueSet = xQueueCreateSet(2);
 
+  /* Add the two Queues to the set. */
+  xQueueAddToSet(xQueue1, xQueueSet);
+  xQueueAddToSet(xQueue2, xQueueSet);
+
+  /* Create the Tasks that send to the queues. */
+    xTaskCreate(vSenderTask1, "Sender1", 1024, NULL, 1, NULL);
+    xTaskCreate(vSenderTask2, "Sender2", 1024, NULL, 1, NULL);
 }
 
 void loop() {
-  static Data_t xReceivedStructure;
-  static BaseType_t xStatus;
+  static QueueHandle_t xQueueThatContainsData;
+  static char *pcReceivedString;
 
-  if(uxQueueMessagesWaiting(xQueue) != 3) {
-    printf("Queue should have been full!\n\n");
-  }
+  /* Block on the queue set to wait for one of the queue int the set to contain data. */
+  xQueueThatContainsData = (QueueHandle_t)xQueueSelectFromSet(xQueueSet, portMAX_DELAY);
 
-  xStatus = xQueueReceive(xQueue, &xReceivedStructure, 0);
-  if(xStatus == pdPASS) {  // Data was successfully received
-    if(xReceivedStructure.eDataSource == eSender1) {
-      printf("From Sender 1 = %d\n\n", xReceivedStructure.ucValue);
-    }
-    else {
-      printf("From Sender 2 = %d\n\n", xReceivedStructure.ucValue);
-    }
-  }
-  else {
-    printf("Could not receive from the queue.\n\n");
-  }
+  xQueueReceive(xQueueThatContainsData, &pcReceivedString, 0);
+  printf(pcReceivedString);
 }
