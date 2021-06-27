@@ -1,62 +1,53 @@
-// Queue set
+// Queue overwrite, peek
 
-/* handle of Queue */
-QueueHandle_t xQueue1 = NULL, xQueue2 = NULL;
-/* handle of Queue set */
-QueueSetHandle_t xQueueSet = NULL;
+typedef struct xExampleStructure {
+  TickType_t xTimeStamp;
+  uint32_t ulValue;
+} Example_t;
 
-static void vSenderTask1(void *pvParameters) {
-  const TickType_t xBlockTime = pdMS_TO_TICKS(200UL);
-  const char* const pcMessage ="Message for vSenderTask1\n\n"; 
+/* handle fo queue */
+static QueueHandle_t xMailbox;
+
+static void vUpdateData(void *pvParameters) {
+  Example_t xData;
+  uint32_t value = 0;
+  const TickType_t xBlockTime = pdMS_TO_TICKS(500);
 
   for(;;) {
-    /* Block for 200ms */
-    vTaskDelay(xBlockTime);
+    xData.ulValue = value++;
+    xData.xTimeStamp = xTaskGetTickCount();
 
-    /* Send this task's string to xQueue1. */ 
-    xQueueSend(xQueue1, &pcMessage, 0);
+    xQueueOverwrite(xMailbox, &xData);
+    vTaskDelay(xBlockTime);
   }
 }
 
-static void vSenderTask2(void *pvParameters) {
-  const TickType_t xBlockTime = pdMS_TO_TICKS(400UL);
-  const char* const pcMessage ="Message for vSenderTask2\n\n"; 
-
-  for(;;) {
-    /* Block for 400ms */
-    vTaskDelay(xBlockTime);
-
-    /* Send this task's string to xQueue1. */ 
-    xQueueSend(xQueue2, &pcMessage, 0);
-  }
-}
+Example_t xData;
 
 void setup() {
   printf("Hello world!\n");
 
   /* Create Queue */
-  xQueue1 = xQueueCreate(1, sizeof(char *));
-  xQueue2 = xQueueCreate(1, sizeof(char *));
-
-  /* Creat Queue-set */
-  xQueueSet = xQueueCreateSet(2);
-
-  /* Add the two Queues to the set. */
-  xQueueAddToSet(xQueue1, xQueueSet);
-  xQueueAddToSet(xQueue2, xQueueSet);
+  xMailbox = xQueueCreate(1, sizeof(Example_t));
 
   /* Create the Tasks that send to the queues. */
-    xTaskCreate(vSenderTask1, "Sender1", 1024, NULL, 1, NULL);
-    xTaskCreate(vSenderTask2, "Sender2", 1024, NULL, 1, NULL);
+    xTaskCreate(vUpdateData, "Update", 1024, NULL, 1, NULL); 
+
+    memset(&xData, 0, sizeof(Example_t));
 }
 
 void loop() {
-  static QueueHandle_t xQueueThatContainsData;
-  static char *pcReceivedString;
+  static TickType_t xPrevTimeStamp;
+  const TickType_t xBlockTime = pdMS_TO_TICKS(100);
 
-  /* Block on the queue set to wait for one of the queue int the set to contain data. */
-  xQueueThatContainsData = (QueueHandle_t)xQueueSelectFromSet(xQueueSet, portMAX_DELAY);
+  xPrevTimeStamp = xData.xTimeStamp;
+  xQueuePeek(xMailbox, &xData, portMAX_DELAY);
 
-  xQueueReceive(xQueueThatContainsData, &pcReceivedString, 0);
-  printf(pcReceivedString);
+  if(xData.xTimeStamp > xPrevTimeStamp) {
+    printf("value : %d\n\n", xData.ulValue);
+  }
+  else {
+    printf("Not receive Mailbox\n\n");
+  }
+  vTaskDelay(xBlockTime);
 }
